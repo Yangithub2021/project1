@@ -1,0 +1,123 @@
+---
+title: "Reproducible Research: Peer Assessment 1- template from the course instructor"
+output: html_document
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Loading and preprocessing the data
+
+Reading data into R and create DF dt with summary
+
+```{r, readdt}
+dt<-read.csv("C:/coursera/Reproducible-research/activity.csv")
+head(dt)
+summary(dt)
+```
+
+## What is mean total number of steps taken per day?
+Using aggregate() to calculate total number per day and its mean and median  
+For this part ignore the missing value
+
+
+```{r statperday, echo=TRUE}
+totalno<-aggregate(steps~date, sum, data=dt)
+print (totalno)
+mean(totalno$steps)
+median(totalno$steps)
+```
+The mean total number steps per day = 10766.19 and the median=10765.
+
+##### Histogram of total number of steps per day
+
+```{r graphhit}
+hist(totalno$steps, freq=FALSE, breaks=10, xlab="Daily Total Steps", main="Histogram of Total Number Per Day")
+```
+
+
+## What is the average daily activity pattern?
+
+time series plot of 5 minute interval and average number of steps taken across all days.
+
+```{r statinterval, echo=TRUE}
+intervalmean<-aggregate(steps~interval, mean, data=dt)
+plot(intervalmean$interval, intervalmean$steps, xlab="time interval", ylab="mean steps", main="Average stpes over 5 minute interval")
+intervalmean$interval[which.max(intervalmean$steps)]
+max(intervalmean$steps)
+```
+
+The interval with maximum mean value = 835 and the max mean value=206.1698
+
+## Imputing missing values
+
+I use the interval mean as the imputed value for missings in the corresponding intervals.
+
+```{r missingvalue, echo=TRUE}
+sum(is.na(dt$steps))
+intervalmean=aggregate(steps~interval, mean, data=dt)
+names(intervalmean)<-c("interval","stepsmean")
+dt2<-merge(dt, intervalmean, by="interval")
+dt2$steps3<-dt2$steps
+dt2$steps3[is.na(dt2$steps)]<-dt2$stepsmean[is.na(dt2$steps)]
+
+```
+There are 2304 missing values.
+Now we look at the distribution of before and after imputation
+
+```{r newvar, echo=TRUE}
+summary(dt2[,c("steps","steps3")])
+
+dailytot <- aggregate(steps3 ~ date, sum, data=dt2)
+
+def.par <- par(no.readonly = TRUE)
+layout(matrix(c(1,2), 1, 2, byrow = TRUE))
+
+hist(dailytot$steps3, freq=FALSE, breaks=20, ylim=c(0, 0.0003), xlab="daily total steps", main="After imputation")
+hist(totalno$steps, freq=FALSE, breaks=20, ylim=c(0, 0.0003), xlab="Daily Total Steps", main="Before imputation")
+par(def.par)
+
+mean(dailytot$steps3)
+median(dailytot$steps3)
+```
+After imputation, the mean and median number of daily steps both = 10766.19  
+Before imputation, the mean and median = 10766.19 and 10765, respectively.  
+The mean and median do not change much before and after imputation. This is expected since  
+we use the interval means as the imputed value for missing data. However, the two histograms  
+different in the middle part.
+
+## Are there differences in activity patterns between weekdays and weekends?
+1. using as.Data() to convert character into date
+2. using weekday() to create dummy for weekend (1=Yes, 0=No)
+```{r dodate}
+dt2$date2<-as.Date(dt2$date,"%Y-%m-%d")
+summary(dt2[,c("date", "date2")])
+dt2$weekdays<-weekdays(dt2$date2)
+dt2$weekend<-ifelse((dt2$weekdays=="Saturday"|dt2$weekdays=="Sunday"), 1, 0)
+```
+
+Now, we generate a panel plot:  
+
+1. obtaining the mean number of steps in each of 5-minute interval for weekdays and weekend  
+2. obtaining panel plot to place two graph in same page  
+
+
+```{r panelplot}
+
+weekdaydt<-aggregate(steps3~interval, FUN=mean, subset=weekend==0, data=dt2)
+weekenddt<-aggregate(steps3~interval, FUN=mean, subset=weekend==1, data=dt2)
+
+weekdaydt$group<-rep("weekday", nrow(weekdaydt))
+weekenddt$group<-rep("weekend", nrow(weekenddt))
+totaldt<-rbind(weekdaydt, weekenddt)
+library(lattice)
+xyplot(steps3~interval | group, data=totaldt, type="l")
+
+```
+
+There are differences in activity patterns between weekday and weekend. There is a high peak in weekdays but   
+in weekend, the activities are relative spread out.
+
+
